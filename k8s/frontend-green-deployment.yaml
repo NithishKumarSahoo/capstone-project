@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-green-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend-green
+  template:
+    metadata:
+      labels:
+        app: frontend-green
+    spec:
+      containers:
+      - name: frontend
+        image: capstoneacr8072.azurecr.io/capstone-frontend:latest
+        env:
+        - name: DB_HOST
+          value: "mysql-service"
+        - name: DB_USER
+          value: "ideasuser"
+        - name: DB_PASSWORD
+          value: "ideaspass"
+        - name: DB_NAME
+          value: "ideasdb"
+        ports:
+        - containerPort: 80
+

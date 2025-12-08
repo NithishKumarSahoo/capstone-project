@@ -1,0 +1,74 @@
+name: Simple CI-CD to AKS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+env:
+  ACR_NAME: capstoneacr8072
+  ACR_LOGIN_SERVER: capstoneacr8072.azurecr.io
+  AKS_RG: eightmin-rg
+  AKS_CLUSTER: capstone-aks
+
+jobs:
+  ci-cd:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to ACR
+        run: az acr login --name $ACR_NAME
+
+      - name: Build frontend image
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/capstone-frontend:${{ github.sha }} ./frontend
+          docker tag $ACR_LOGIN_SERVER/capstone-frontend:${{ github.sha }} $ACR_LOGIN_SERVER/capstone-frontend:latest
+
+      - name: Build mysql image
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/capstone-mysql:${{ github.sha }} ./db
+          docker tag $ACR_LOGIN_SERVER/capstone-mysql:${{ github.sha }} $ACR_LOGIN_SERVER/capstone-mysql:latest
+
+      - name: Trivy scan frontend
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.ACR_LOGIN_SERVER }}/capstone-frontend:${{ github.sha }}
+          format: table
+          exit-code: '0'
+
+      - name: Trivy scan mysql
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.ACR_LOGIN_SERVER }}/capstone-mysql:${{ github.sha }}
+          format: table
+          exit-code: '0'
+
+      - name: Push images to ACR
+        run: |
+          docker push $ACR_LOGIN_SERVER/capstone-frontend:${{ github.sha }}
+          docker push $ACR_LOGIN_SERVER/capstone-frontend:latest
+          docker push $ACR_LOGIN_SERVER/capstone-mysql:${{ github.sha }}
+          docker push $ACR_LOGIN_SERVER/capstone-mysql:latest
+
+      - name: Set AKS context
+        uses: azure/aks-set-context@v4
+        with:
+          resource-group: ${{ env.AKS_RG }}
+          cluster-name: ${{ env.AKS_CLUSTER }}
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/
+
+      - name: Update frontend deployment to latest
+        run: |
+          kubectl set image deployment/frontend-deployment frontend=$ACR_LOGIN_SERVER/capstone-frontend:latest
+

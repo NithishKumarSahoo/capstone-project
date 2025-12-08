@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: capstoneacr8072.azurecr.io/capstone-frontend:v1
+        env:
+        - name: DB_HOST
+          value: "mysql-service"
+        - name: DB_USER
+          value: "ideasuser"
+        - name: DB_PASSWORD
+          value: "ideaspass"
+        - name: DB_NAME
+          value: "ideasdb"
+        ports:
+        - containerPort: 80
+
